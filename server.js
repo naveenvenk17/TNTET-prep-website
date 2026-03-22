@@ -27,36 +27,90 @@ function extractTitle(html) {
 
 // ── Regex-based extraction (primary) ──
 function extractViaRegex(html) {
-    // Try tamilQuizData first (most common)
-    const tamilMatch = html.match(/const\s+tamilQuizData\s*=\s*(\[[\s\S]*?\]);/);
-    if (tamilMatch) {
-        const context = {};
-        vm.createContext(context);
-        return vm.runInContext(`const data = ${tamilMatch[1]}; data;`, context);
+    // Strategy: find any const/let/var that assigns an array of objects containing quiz questions.
+    // Multiple variable naming conventions exist across quiz sites:
+    //   tamilQuizData, psychologyData, quizData, ecoData, aliceData, englishData,
+    //   socialQuestions, psychologyQuestions, tamilQuestions, questions, etc.
+
+    // Look for separate answer arrays that may need to be merged
+    const correctAnswersMatch = html.match(/(?:const|let|var)\s+correctAnswers\s*=\s*(\[[\s\S]*?\]);/);
+    const correctIndicesMatch = html.match(/(?:const|let|var)\s+correctIndices\s*=\s*(\[[\s\S]*?\]);/);
+
+    // Collect all variable candidates that look like quiz arrays
+    const candidates = [];
+    const varRegex = /(?:const|let|var)\s+(\w+)\s*=\s*\[/g;
+    let varMatch;
+    while ((varMatch = varRegex.exec(html)) !== null) {
+        const name = varMatch[1];
+        // Skip non-quiz variables (correctAnswers, correctIndices, known non-quiz vars)
+        if (/^(correctAnswers|correctIndices|labels|colors|categories|months|days|options)$/i.test(name)) continue;
+        candidates.push({ name, index: varMatch.index });
     }
 
-    // Try any *Data or *QuizData variable with a separate correctIndices array
-    const dataMatch = html.match(/const\s+(\w+(?:Data|QuizData))\s*=\s*(\[[\s\S]*?\]);/);
-    const indicesMatch = html.match(/const\s+correctIndices\s*=\s*(\[[\s\S]*?\]);/);
+    // Try each candidate, prioritizing ones with quiz-like names
+    const quizNameScore = (name) => {
+        const n = name.toLowerCase();
+        if (n === 'tamilquizdata') return 10;
+        if (n.includes('quiz')) return 8;
+        if (n.includes('question')) return 7;
+        if (n.endsWith('data')) return 6;
+        return 1;
+    };
+    candidates.sort((a, b) => quizNameScore(b.name) - quizNameScore(a.name));
 
-    if (dataMatch) {
-        const context = {};
-        vm.createContext(context);
-        const questions = vm.runInContext(`const d = ${dataMatch[2]}; d;`, context);
+    for (const candidate of candidates) {
+        try {
+            // Extract the array for this variable
+            const fromVar = html.substring(candidate.index);
+            const arrayMatch = fromVar.match(/(?:const|let|var)\s+\w+\s*=\s*(\[[\s\S]*?\]);/);
+            if (!arrayMatch) continue;
 
-        if (indicesMatch) {
-            const indices = vm.runInContext(`const d = ${indicesMatch[1]}; d;`, vm.createContext({}));
-            // Merge correctIndices into each question as "c"
-            questions.forEach((q, i) => {
-                if (q.c === undefined && indices[i] !== undefined) {
-                    q.c = indices[i];
+            const context = {};
+            vm.createContext(context);
+            const questions = vm.runInContext(`const d = ${arrayMatch[1]}; d;`, context);
+
+            if (!Array.isArray(questions) || questions.length === 0) continue;
+            if (!questions[0].q) continue; // Must have a question field
+
+            // Format A: standard { q, a: [...], c } — may need correctIndices merged
+            if (Array.isArray(questions[0].a)) {
+                if (correctIndicesMatch) {
+                    const indices = vm.runInContext(`const d = ${correctIndicesMatch[1]}; d;`, vm.createContext({}));
+                    questions.forEach((q, i) => {
+                        if (q.c === undefined && indices[i] !== undefined) q.c = indices[i];
+                    });
                 }
-            });
-        }
+                if (questions[0].q && questions[0].a) return questions;
+            }
 
-        // Validate: each question needs q, a, and c
-        if (questions.length > 0 && questions[0].q && questions[0].a) {
-            return questions;
+            // Format B: { q, a: "A. opt", b: "B. opt", c: "C. opt", d: "D. opt" } with correctAnswers
+            if (typeof questions[0].a === 'string') {
+                let answerKeys = null;
+                if (correctAnswersMatch) {
+                    answerKeys = vm.runInContext(`const d = ${correctAnswersMatch[1]}; d;`, vm.createContext({}));
+                }
+                const letterToIndex = { 'A': 0, 'B': 1, 'C': 2, 'D': 3 };
+
+                const converted = questions.map((q, i) => {
+                    // Strip leading "A. ", "B. " etc. from options
+                    const opts = ['a', 'b', 'c', 'd']
+                        .map(key => q[key])
+                        .filter(Boolean)
+                        .map(opt => typeof opt === 'string' ? opt.replace(/^[A-Da-d][\.\)]\s*/, '') : opt);
+
+                    let correctIdx = 0;
+                    if (answerKeys && answerKeys[i]) {
+                        correctIdx = letterToIndex[answerKeys[i].toUpperCase()] ?? 0;
+                    }
+
+                    return { q: q.q, a: opts, c: correctIdx };
+                });
+
+                if (converted.length > 0 && converted[0].a.length >= 2) return converted;
+            }
+        } catch (e) {
+            // This candidate failed to parse, try next
+            continue;
         }
     }
 
@@ -156,6 +210,48 @@ app.get('/api/extract', async (req, res) => {
         console.error("Extraction error:", err);
         return res.status(500).json({ error: "Failed to extract data: " + err.message });
     }
+});
+
+// ── Batch extract endpoint ──
+app.post('/api/batch-extract', async (req, res) => {
+    const { urls } = req.body;
+    if (!Array.isArray(urls) || urls.length === 0) {
+        return res.status(400).json({ error: "No URLs provided" });
+    }
+
+    const results = [];
+    for (const targetUrl of urls) {
+        try {
+            const fetchRes = await fetch(targetUrl, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+                }
+            });
+            const html = await fetchRes.text();
+            const title = extractTitle(html);
+            let quiz = extractViaRegex(html);
+            let method = 'regex';
+
+            if (!quiz) {
+                try {
+                    quiz = await extractViaGPT(html);
+                    method = 'gpt5';
+                } catch (gptErr) {
+                    results.push({ url: targetUrl, success: false, error: gptErr.message });
+                    continue;
+                }
+            }
+
+            console.log(`[Batch] "${title}" — ${quiz.length} questions via ${method}`);
+            results.push({ url: targetUrl, success: true, quiz, title, method });
+        } catch (err) {
+            console.error(`[Batch] Failed: ${targetUrl}`, err.message);
+            results.push({ url: targetUrl, success: false, error: err.message });
+        }
+    }
+
+    return res.json({ results });
 });
 
 // Local dev: listen on port. Vercel: export the app.

@@ -1313,4 +1313,5 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!e.target.closest('#user-profile-nav')) profileDropdown.classList.add('hidden');
         document.querySelectorAll('.share-dropdown').forEach(d => d.classList.add('hidden'));
     });
+
 });
