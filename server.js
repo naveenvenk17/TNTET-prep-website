@@ -254,6 +254,11 @@ app.post('/api/batch-extract', async (req, res) => {
     return res.json({ results });
 });
 
+// SPA catch-all: serve index.html for all non-API, non-static routes
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 // Local dev: listen on port. Vercel: export the app.
 if (process.env.VERCEL) {
     module.exports = app;

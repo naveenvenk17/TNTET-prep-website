@@ -200,7 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Check if arriving via shared link
             const loaded = await checkSharedQuiz();
-            if (!loaded) showTab('home');
+            if (!loaded) showTab(getInitialTab());
         } else {
             // Not signed in — show auth
             mainContent.classList.add('hidden');
@@ -327,7 +327,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const inactiveTabClass = "nav-link font-headline tracking-tight font-bold text-on-surface-variant hover:text-primary transition-colors";
     const activeTabClass = "nav-link active font-headline tracking-tight font-bold text-primary transition-colors";
 
-    function showTab(tab) {
+    let currentTab = null;
+
+    const tabToPath = { home: '/', history: '/history', dashboard: '/dashboard', quiz: '/quiz' };
+    const pathToTab = { '/': 'home', '/history': 'history', '/dashboard': 'dashboard', '/quiz': 'quiz' };
+
+    function showTab(tab, { pushState = true } = {}) {
         allNavTabs.forEach(t => t.className = inactiveTabClass);
 
         [viewHome, viewHistory, viewDashboard, viewQuiz].forEach(v => {
@@ -353,6 +358,32 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => viewDashboard.classList.replace('opacity-0', 'opacity-100'), 50);
             loadDashboard();
         }
+
+        const urlPath = tabToPath[tab] || '/';
+        if (pushState) {
+            if (currentTab === null) {
+                history.replaceState({ view: tab }, '', urlPath);
+            } else {
+                history.pushState({ view: tab }, '', urlPath);
+            }
+        }
+        currentTab = tab;
+    }
+
+    // Browser back/forward button support
+    window.addEventListener('popstate', (e) => {
+        if (e.state && e.state.view) {
+            showTab(e.state.view, { pushState: false });
+        } else {
+            // Fallback: read from URL path
+            const tab = pathToTab[window.location.pathname] || 'home';
+            showTab(tab, { pushState: false });
+        }
+    });
+
+    // Resolve initial tab from URL path
+    function getInitialTab() {
+        return pathToTab[window.location.pathname] || 'home';
     }
 
     // ── History Search ──
@@ -702,6 +733,9 @@ document.addEventListener('DOMContentLoaded', () => {
         viewQuiz.classList.remove('opacity-0');
         viewQuiz.classList.add('opacity-100');
 
+        history.pushState({ view: 'quiz' }, '', '/quiz');
+        currentTab = 'quiz';
+
         renderQuiz();
         window.scrollTo(0, 0);
     }
@@ -852,6 +886,9 @@ document.addEventListener('DOMContentLoaded', () => {
             viewQuiz.classList.remove('hidden');
             viewQuiz.classList.remove('opacity-0');
             viewQuiz.classList.add('opacity-100');
+
+            history.pushState({ view: 'quiz' }, '', '');
+            currentTab = 'quiz';
 
             renderQuiz();
             window.scrollTo(0, 0);
@@ -1225,7 +1262,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const sharedDoc = await db.collection('shared').doc(shareId).get();
             if (!sharedDoc.exists) {
                 alert('This shared quiz link is invalid or expired.');
-                window.history.replaceState({}, '', window.location.pathname);
+                window.history.replaceState({}, '', '/');
                 return false;
             }
 
@@ -1271,7 +1308,7 @@ document.addEventListener('DOMContentLoaded', () => {
             window.scrollTo(0, 0);
 
             // Clean URL
-            window.history.replaceState({}, '', window.location.pathname);
+            window.history.replaceState({}, '', '/');
             return true;
         } catch (err) {
             console.error('Failed to load shared quiz:', err);
