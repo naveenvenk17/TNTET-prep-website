@@ -1,4 +1,4 @@
-# Proposed Features for ZealQuiz
+# Proposed Features for TNTET Ace
 
 To enhance the exam preparation experience for your mom, here are the proposed features:
 
