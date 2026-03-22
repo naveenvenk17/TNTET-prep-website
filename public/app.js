@@ -26,6 +26,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const userAvatar = document.getElementById('user-avatar');
     const userDisplayName = document.getElementById('user-display-name');
     const btnLogout = document.getElementById('btn-logout');
+    const btnProfileMenu = document.getElementById('btn-profile-menu');
+    const profileDropdown = document.getElementById('profile-dropdown');
+    const dropdownUserName = document.getElementById('dropdown-user-name');
+    const dropdownUserEmail = document.getElementById('dropdown-user-email');
 
     // View sections
     const viewHome = document.getElementById('view-home');
@@ -48,6 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const historySearch = document.getElementById('history-search');
     const btnEndQuiz = document.getElementById('btn-end-quiz');
     const btnGoLibrary = document.getElementById('btn-go-library');
+    const btnResetQuiz = document.getElementById('btn-reset-quiz');
 
     const loadingDiv = document.getElementById('loading');
     const errorMsg = document.getElementById('error-msg');
@@ -184,8 +189,11 @@ document.addEventListener('DOMContentLoaded', () => {
             // Update nav profile
             userProfileNav.classList.remove('hidden');
             userProfileNav.style.display = 'flex';
-            userDisplayName.textContent = user.displayName || user.email.split('@')[0];
+            const displayName = user.displayName || user.email.split('@')[0];
+            userDisplayName.textContent = displayName;
             userAvatar.src = user.photoURL || generateAvatar(user.displayName || user.email);
+            dropdownUserName.textContent = displayName;
+            dropdownUserEmail.textContent = user.email || '';
 
             // Pre-fill PDF student name
             if (pdfStudentName) pdfStudentName.value = user.displayName || '';
@@ -955,9 +963,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentMode === 'printable') {
             liveStatsBar.classList.add('hidden');
             pdfHeaderFields.classList.remove('hidden');
+            btnResetQuiz.classList.add('hidden');
         } else {
             pdfHeaderFields.classList.add('hidden');
             liveStatsBar.classList.remove('hidden');
+            btnResetQuiz.classList.remove('hidden');
+            btnResetQuiz.style.display = 'inline-flex';
             updateProgress();
         }
 
@@ -1281,9 +1292,25 @@ document.addEventListener('DOMContentLoaded', () => {
     btnScoreHome.onclick = () => showTab('home');
     btnEndQuiz.onclick = () => showTab('home');
     btnGoLibrary.onclick = () => showTab('history');
+    btnResetQuiz.onclick = () => { clearProgress(); renderQuiz(); window.scrollTo(0, 0); };
 
-    // Close share dropdowns on click outside
-    document.addEventListener('click', () => {
+    // ── Profile Dropdown ──
+    btnProfileMenu.onclick = (e) => {
+        e.stopPropagation();
+        profileDropdown.classList.toggle('hidden');
+    };
+
+    // Mobile nav links in dropdown
+    const navHomeMobile = document.getElementById('nav-home-mobile');
+    const navHistoryMobile = document.getElementById('nav-history-mobile');
+    const navDashboardMobile = document.getElementById('nav-dashboard-mobile');
+    if (navHomeMobile) navHomeMobile.onclick = () => { profileDropdown.classList.add('hidden'); showTab('home'); };
+    if (navHistoryMobile) navHistoryMobile.onclick = () => { profileDropdown.classList.add('hidden'); showTab('history'); };
+    if (navDashboardMobile) navDashboardMobile.onclick = () => { profileDropdown.classList.add('hidden'); showTab('dashboard'); };
+
+    // Close all dropdowns on click outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('#user-profile-nav')) profileDropdown.classList.add('hidden');
         document.querySelectorAll('.share-dropdown').forEach(d => d.classList.add('hidden'));
     });
 });

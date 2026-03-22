@@ -4,6 +4,15 @@
     vertical-align: middle;
 }
 
+/* Hide scrollbar for horizontal button rows */
+.scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+
 /* Gradient button */
 .bg-gradient-primary {
     background: linear-gradient(135deg, #14422d 0%, #2d5a43 100%);

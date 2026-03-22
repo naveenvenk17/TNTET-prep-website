@@ -65,23 +65,43 @@
 
     <!-- Navigation -->
     <nav class="no-print fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-xl shadow-sm shadow-primary/5 transition-all">
-        <div class="flex justify-between items-center px-8 py-4 max-w-7xl mx-auto">
+        <div class="flex justify-between items-center px-4 md:px-8 py-3 md:py-4 max-w-7xl mx-auto">
             <span class="text-2xl font-black tracking-tighter text-primary font-headline cursor-pointer hover:opacity-80 transition-opacity" onclick="document.getElementById('nav-home').click()">
                 TNTET Ace.
             </span>
-            <div class="flex items-center gap-8">
-                <div class="hidden md:flex items-center gap-8">
+            <div class="flex items-center gap-6">
+                <!-- Desktop nav links -->
+                <div class="hidden md:flex items-center gap-6">
                     <button id="nav-home" class="nav-link font-headline tracking-tight font-bold text-on-surface-variant hover:text-primary transition-colors">Home</button>
                     <button id="nav-history" class="nav-link font-headline tracking-tight font-bold text-on-surface-variant hover:text-primary transition-colors">My Quizzes</button>
                     <button id="nav-dashboard" class="nav-link font-headline tracking-tight font-bold text-on-surface-variant hover:text-primary transition-colors">Dashboard</button>
                 </div>
-                <!-- User Profile -->
-                <div id="user-profile-nav" class="hidden items-center gap-3">
-                    <img id="user-avatar" class="w-8 h-8 rounded-full border-2 border-outline-variant object-cover" src="" alt="avatar">
-                    <span id="user-display-name" class="text-sm font-bold text-on-surface font-headline hidden md:inline truncate max-w-[120px]"></span>
-                    <button id="btn-logout" class="text-xs font-headline font-bold text-on-surface-variant hover:text-error transition-colors px-2 py-1 rounded-lg hover:bg-error-container/50" title="Sign out">
-                        <span class="material-symbols-outlined text-sm">logout</span>
+                <!-- User Profile with dropdown -->
+                <div id="user-profile-nav" class="hidden items-center gap-2 relative">
+                    <button id="btn-profile-menu" class="flex items-center gap-2 rounded-full hover:opacity-80 transition-opacity">
+                        <img id="user-avatar" class="w-9 h-9 rounded-full border-2 border-outline-variant object-cover" src="" alt="avatar">
+                        <span id="user-display-name" class="text-sm font-bold text-on-surface font-headline hidden md:inline truncate max-w-[120px]"></span>
+                        <span class="material-symbols-outlined text-on-surface-variant text-[18px] md:hidden">expand_more</span>
                     </button>
+                    <!-- Profile Dropdown -->
+                    <div id="profile-dropdown" class="hidden absolute right-0 top-full mt-2 w-52 bg-surface-container-lowest rounded-xl shadow-xl shadow-black/10 border border-surface-variant overflow-hidden z-50">
+                        <div id="dropdown-user-info" class="px-4 py-3 border-b border-surface-variant">
+                            <div id="dropdown-user-name" class="font-headline font-bold text-sm text-on-surface truncate"></div>
+                            <div id="dropdown-user-email" class="font-headline text-xs text-on-surface-variant truncate"></div>
+                        </div>
+                        <button id="nav-home-mobile" class="md:hidden w-full px-4 py-2.5 text-left text-sm font-headline font-bold text-on-surface hover:bg-surface-container-low transition-all flex items-center gap-3">
+                            <span class="material-symbols-outlined text-[18px]">home</span> Home
+                        </button>
+                        <button id="nav-history-mobile" class="md:hidden w-full px-4 py-2.5 text-left text-sm font-headline font-bold text-on-surface hover:bg-surface-container-low transition-all flex items-center gap-3">
+                            <span class="material-symbols-outlined text-[18px]">library_books</span> My Quizzes
+                        </button>
+                        <button id="nav-dashboard-mobile" class="md:hidden w-full px-4 py-2.5 text-left text-sm font-headline font-bold text-on-surface hover:bg-surface-container-low transition-all flex items-center gap-3">
+                            <span class="material-symbols-outlined text-[18px]">dashboard</span> Dashboard
+                        </button>
+                        <button id="btn-logout" class="w-full px-4 py-2.5 text-left text-sm font-headline font-bold text-error hover:bg-error-container/30 transition-all flex items-center gap-3 border-t border-surface-variant">
+                            <span class="material-symbols-outlined text-[18px]">logout</span> Sign Out
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -240,30 +260,35 @@
         <!-- Floating Quiz Bar (sticky below nav) -->
         <div id="quiz-floating-bar" class="no-print sticky top-[72px] z-40 w-full backdrop-blur-xl bg-surface-container-low/90 border-b border-surface-variant/50 shadow-md shadow-black/5">
             <div class="max-w-5xl mx-auto px-4 md:px-6 py-3">
-                <!-- Row 1: Title + action buttons -->
-                <div class="flex justify-between items-center gap-3 mb-2">
+                <!-- Row 1: Title + Back -->
+                <div class="flex justify-between items-center gap-2 mb-2">
                     <div class="overflow-hidden flex-1 min-w-0">
                         <span id="quiz-mode-badge" class="font-headline font-bold text-[9px] tracking-widest text-primary uppercase">Interactive</span>
-                        <h2 id="current-quiz-title" class="font-headline text-base md:text-lg font-extrabold text-on-surface truncate leading-tight">Quiz Title</h2>
+                        <h2 id="current-quiz-title" class="font-headline text-sm md:text-lg font-extrabold text-on-surface truncate leading-tight">Quiz Title</h2>
                     </div>
-                    <div class="flex gap-1.5 shrink-0">
-                        <button id="btn-download-pdf" class="hidden h-8 px-3 bg-primary text-on-primary rounded-lg font-headline font-bold text-[11px] hover:opacity-90 transition-all items-center gap-1">
-                            <span class="material-symbols-outlined text-[14px]">download</span>
-                            PDF
-                        </button>
-                        <button id="btn-share-quiz" class="hidden h-8 px-3 bg-surface-container-high text-on-surface rounded-lg font-headline font-bold text-[11px] hover:bg-surface-container-highest transition-all inline-flex items-center gap-1">
-                            <span class="material-symbols-outlined text-[14px]">share</span>
-                            Share
-                        </button>
-                        <button id="btn-whatsapp-share" class="hidden h-8 px-3 bg-[#25D366] text-white rounded-lg font-headline font-bold text-[11px] hover:bg-[#1da851] transition-all inline-flex items-center gap-1">
-                            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                            WhatsApp
-                        </button>
-                        <button id="btn-back-to-nav" class="h-8 px-3 bg-surface-container-high text-on-surface rounded-lg font-headline font-bold text-[11px] hover:bg-surface-container-highest transition-all inline-flex items-center gap-1">
-                            <span class="material-symbols-outlined text-[14px]">arrow_back</span>
-                            Back
-                        </button>
-                    </div>
+                    <button id="btn-back-to-nav" class="shrink-0 h-8 px-3 bg-surface-container-high text-on-surface rounded-lg font-headline font-bold text-[11px] hover:bg-surface-container-highest transition-all inline-flex items-center gap-1">
+                        <span class="material-symbols-outlined text-[14px]">arrow_back</span>
+                        <span class="hidden sm:inline">Back</span>
+                    </button>
+                </div>
+                <!-- Row 2: Action buttons (scrollable on mobile) -->
+                <div class="flex gap-1.5 mb-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+                    <button id="btn-download-pdf" class="hidden shrink-0 h-7 px-2.5 bg-primary text-on-primary rounded-md font-headline font-bold text-[10px] hover:opacity-90 transition-all items-center gap-1">
+                        <span class="material-symbols-outlined text-[13px]">download</span>
+                        PDF
+                    </button>
+                    <button id="btn-share-quiz" class="hidden shrink-0 h-7 px-2.5 bg-surface-container-high text-on-surface rounded-md font-headline font-bold text-[10px] hover:bg-surface-container-highest transition-all inline-flex items-center gap-1">
+                        <span class="material-symbols-outlined text-[13px]">share</span>
+                        Share
+                    </button>
+                    <button id="btn-whatsapp-share" class="hidden shrink-0 h-7 px-2.5 bg-[#25D366] text-white rounded-md font-headline font-bold text-[10px] hover:bg-[#1da851] transition-all inline-flex items-center gap-1">
+                        <svg class="w-3 h-3 fill-current" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                        WA
+                    </button>
+                    <button id="btn-reset-quiz" class="hidden shrink-0 h-7 px-2.5 bg-error-container text-on-error-container rounded-md font-headline font-bold text-[10px] hover:opacity-90 transition-all inline-flex items-center gap-1">
+                        <span class="material-symbols-outlined text-[13px]">restart_alt</span>
+                        Reset
+                    </button>
                 </div>
 
                 <!-- Row 2: Live Stats (interactive mode) -->
