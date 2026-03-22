@@ -737,9 +737,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ── Save quiz to Firestore (user-scoped) ──
+    function hashUrl(str) {
+        // Simple djb2-based hash producing a 12-char hex string
+        let h1 = 0x811c9dc5, h2 = 0x01000193;
+        for (let i = 0; i < str.length; i++) {
+            const c = str.charCodeAt(i);
+            h1 = ((h1 ^ c) * 0x01000193) >>> 0;
+            h2 = ((h2 ^ c) * 0x811c9dc5) >>> 0;
+        }
+        return h1.toString(16).padStart(8, '0') + h2.toString(16).padStart(8, '0');
+    }
+
     function generateQuizDocId(url) {
         if (!currentUser) return null;
-        return `${currentUser.uid}_${btoa(url).substring(0, 40)}`;
+        return `${currentUser.uid}_${hashUrl(url)}`;
     }
 
     async function saveQuizToFirestore(url, title, questions) {
