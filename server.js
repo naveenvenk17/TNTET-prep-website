@@ -27,13 +27,40 @@ function extractTitle(html) {
 
 // ── Regex-based extraction (primary) ──
 function extractViaRegex(html) {
-    const match = html.match(/const\s+tamilQuizData\s*=\s*(\[[\s\S]*?\]);/);
-    if (!match) return null;
+    // Try tamilQuizData first (most common)
+    const tamilMatch = html.match(/const\s+tamilQuizData\s*=\s*(\[[\s\S]*?\]);/);
+    if (tamilMatch) {
+        const context = {};
+        vm.createContext(context);
+        return vm.runInContext(`const data = ${tamilMatch[1]}; data;`, context);
+    }
 
-    const context = {};
-    vm.createContext(context);
-    const result = vm.runInContext(`const data = ${match[1]}; data;`, context);
-    return result;
+    // Try any *Data or *QuizData variable with a separate correctIndices array
+    const dataMatch = html.match(/const\s+(\w+(?:Data|QuizData))\s*=\s*(\[[\s\S]*?\]);/);
+    const indicesMatch = html.match(/const\s+correctIndices\s*=\s*(\[[\s\S]*?\]);/);
+
+    if (dataMatch) {
+        const context = {};
+        vm.createContext(context);
+        const questions = vm.runInContext(`const d = ${dataMatch[2]}; d;`, context);
+
+        if (indicesMatch) {
+            const indices = vm.runInContext(`const d = ${indicesMatch[1]}; d;`, vm.createContext({}));
+            // Merge correctIndices into each question as "c"
+            questions.forEach((q, i) => {
+                if (q.c === undefined && indices[i] !== undefined) {
+                    q.c = indices[i];
+                }
+            });
+        }
+
+        // Validate: each question needs q, a, and c
+        if (questions.length > 0 && questions[0].q && questions[0].a) {
+            return questions;
+        }
+    }
+
+    return null;
 }
 
 // ── GPT-5 fallback extraction ──
