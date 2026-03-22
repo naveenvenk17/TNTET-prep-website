@@ -8,8 +8,10 @@ const port = 3000;
 
 const openai = new OpenAI({ apiKey: process.env.openai_api });
 
+const path = require('path');
+
 app.use(cors());
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
 // ── Extract title from HTML ──
@@ -129,6 +131,11 @@ app.get('/api/extract', async (req, res) => {
     }
 });
 
-app.listen(port, () => {
-    console.log(`Server running at http://localhost:${port}`);
-});
+// Local dev: listen on port. Vercel: export the app.
+if (process.env.VERCEL) {
+    module.exports = app;
+} else {
+    app.listen(port, () => {
+        console.log(`Server running at http://localhost:${port}`);
+    });
+}
