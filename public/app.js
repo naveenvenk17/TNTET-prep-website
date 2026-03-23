@@ -1184,6 +1184,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── Download PDF ──
     function downloadPdf() {
+        // If not in printable mode, temporarily inject answers + header + answer key
+        const needsAnswers = currentMode !== 'printable';
+        const injected = [];
+
+        if (needsAnswers) {
+            // Add PDF header at top
+            renderPdfHeader();
+
+            // Inject answer text below each question
+            quizContainer.querySelectorAll('.question-card').forEach((card, i) => {
+                if (i >= quizData.length) return;
+                const qObj = quizData[i];
+                const ans = document.createElement('div');
+                ans.className = 'correct-answer-container pdf-injected';
+                const correctLabel = optionLabels[qObj.c] || (qObj.c + 1);
+                const cleanAnsText = decodeHtmlEntity(qObj.a[qObj.c]);
+                ans.textContent = `Answer: ${correctLabel}) ${cleanAnsText}`;
+                card.appendChild(ans);
+                injected.push(ans);
+            });
+
+            // Add answer key at bottom
+            renderAnswerKey();
+        }
+
         const nameSlot = quizContainer.querySelector('.pdf-name-slot');
         const dateSlot = quizContainer.querySelector('.pdf-date-slot');
         if (nameSlot) {
@@ -1209,6 +1234,15 @@ document.addEventListener('DOMContentLoaded', () => {
         html2pdf().set(opt).from(element).save().then(() => {
             btnDownloadPdf.disabled = false;
             btnDownloadPdf.innerHTML = '<span class="material-symbols-outlined text-sm">download</span> Download PDF';
+
+            // Clean up injected elements
+            if (needsAnswers) {
+                injected.forEach(el => el.remove());
+                const pdfHeader = quizContainer.querySelector('#pdf-header-block');
+                if (pdfHeader) pdfHeader.remove();
+                const answerKey = quizContainer.querySelector('.answer-key-block');
+                if (answerKey) answerKey.remove();
+            }
         });
     }
 
