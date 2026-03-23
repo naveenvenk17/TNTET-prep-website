@@ -1187,7 +1187,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Always build a clean printable snapshot — no red/green, no interactive state
         const pdfDiv = document.createElement('div');
         pdfDiv.className = 'mode-printable';
-        pdfDiv.style.cssText = 'position:absolute;left:-9999px;top:0;width:210mm;';
+        pdfDiv.style.cssText = 'width:210mm;padding:10mm;background:#fff;color:#000;font-family:Manrope,sans-serif;';
         document.body.appendChild(pdfDiv);
 
         // PDF header
@@ -1214,16 +1214,15 @@ document.addEventListener('DOMContentLoaded', () => {
             card.style.cssText = 'border-radius:0;border-left:none;box-shadow:none;padding:0;margin-bottom:2.5rem;background:transparent;';
 
             const qText = document.createElement('div');
-            qText.className = 'question-text';
+            qText.style.cssText = 'font-family:Manrope,sans-serif;font-size:1.05rem;font-weight:700;color:#14422d;margin-bottom:0.5rem;';
             qText.textContent = `${i + 1}. ${decodeHtmlEntity(qObj.q)}`;
             card.appendChild(qText);
 
             const optList = document.createElement('ul');
-            optList.className = 'options-list';
+            optList.style.cssText = 'list-style:none;padding:0;margin:0;';
             qObj.a.forEach((optStr, optIdx) => {
                 const item = document.createElement('li');
-                item.className = 'option-item';
-                item.style.cssText = 'padding:0.2rem 0;background:transparent;border:none;border-radius:0;';
+                item.style.cssText = 'padding:0.25rem 0;font-family:Manrope,sans-serif;font-size:0.95rem;color:#1a1c1a;';
                 const label = optionLabels[optIdx] || (optIdx + 1);
                 item.textContent = `${label}) ${decodeHtmlEntity(optStr)}`;
                 optList.appendChild(item);
@@ -1258,7 +1257,7 @@ document.addEventListener('DOMContentLoaded', () => {
             margin: [10, 10, 10, 10],
             filename: `${title}.pdf`,
             image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true },
+            html2canvas: { scale: 2, useCORS: true, scrollY: 0 },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
             pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
         };
