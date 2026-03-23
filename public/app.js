@@ -1210,8 +1210,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Questions with options and answers
         quizData.forEach((qObj, i) => {
             const card = document.createElement('div');
-            card.className = 'question-card';
-            card.style.cssText = 'border-radius:0;border-left:none;box-shadow:none;padding:0;margin-bottom:2.5rem;background:transparent;';
+            card.className = 'question-card pdf-question';
+            card.style.cssText = 'border-radius:0;border-left:none;box-shadow:none;padding:0;margin-bottom:2.5rem;background:transparent;page-break-inside:avoid;break-inside:avoid;';
+            card.setAttribute('data-html2pdf-avoid', '');
 
             const qText = document.createElement('div');
             qText.style.cssText = 'font-family:Manrope,sans-serif;font-size:1.05rem;font-weight:700;color:#14422d;margin-bottom:0.5rem;';
@@ -1259,7 +1260,7 @@ document.addEventListener('DOMContentLoaded', () => {
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: { scale: 2, useCORS: true, scrollY: 0 },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-            pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+            pagebreak: { mode: ['avoid-all', 'css', 'legacy'], avoid: '.pdf-question' }
         };
         btnDownloadPdf.disabled = true;
         btnDownloadPdf.innerHTML = '<span class="animate-spin material-symbols-outlined text-sm">progress_activity</span> Generating...';
