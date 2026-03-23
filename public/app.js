@@ -1184,46 +1184,79 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── Download PDF ──
     function downloadPdf() {
-        // If not in printable mode, temporarily inject answers + header + answer key
-        const needsAnswers = currentMode !== 'printable';
-        const injected = [];
+        // Always build a clean printable snapshot — no red/green, no interactive state
+        const pdfDiv = document.createElement('div');
+        pdfDiv.className = 'mode-printable';
+        pdfDiv.style.cssText = 'position:absolute;left:-9999px;top:0;width:210mm;';
+        document.body.appendChild(pdfDiv);
 
-        if (needsAnswers) {
-            // Add PDF header at top
-            renderPdfHeader();
+        // PDF header
+        const title = quizTitleEl.textContent || 'Quiz';
+        const studentName = pdfStudentName ? pdfStudentName.value.trim() : '';
+        const examDate = pdfExamDate ? pdfExamDate.value : '';
+        const dateStr = examDate ? new Date(examDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '______________________';
 
-            // Inject answer text below each question
-            quizContainer.querySelectorAll('.question-card').forEach((card, i) => {
-                if (i >= quizData.length) return;
-                const qObj = quizData[i];
-                const ans = document.createElement('div');
-                ans.className = 'correct-answer-container pdf-injected';
-                const correctLabel = optionLabels[qObj.c] || (qObj.c + 1);
-                const cleanAnsText = decodeHtmlEntity(qObj.a[qObj.c]);
-                ans.textContent = `Answer: ${correctLabel}) ${cleanAnsText}`;
-                card.appendChild(ans);
-                injected.push(ans);
+        const header = document.createElement('div');
+        header.innerHTML = `
+            <div style="text-align:center; margin-bottom:1.5rem; padding-bottom:1rem; border-bottom:2px solid #c0c9c1;">
+                <h1 style="font-family:Manrope,sans-serif; font-size:1.75rem; font-weight:900; color:#14422d; margin:0 0 0.5rem 0;">${title}</h1>
+                <div style="display:flex; justify-content:space-between; font-family:Manrope,sans-serif; font-size:0.95rem; color:#414943;">
+                    <span>Name: ${studentName || '______________________'}</span>
+                    <span>Date: ${dateStr}</span>
+                </div>
+            </div>`;
+        pdfDiv.appendChild(header);
+
+        // Questions with options and answers
+        quizData.forEach((qObj, i) => {
+            const card = document.createElement('div');
+            card.className = 'question-card';
+            card.style.cssText = 'border-radius:0;border-left:none;box-shadow:none;padding:0;margin-bottom:2.5rem;background:transparent;';
+
+            const qText = document.createElement('div');
+            qText.className = 'question-text';
+            qText.textContent = `${i + 1}. ${decodeHtmlEntity(qObj.q)}`;
+            card.appendChild(qText);
+
+            const optList = document.createElement('ul');
+            optList.className = 'options-list';
+            qObj.a.forEach((optStr, optIdx) => {
+                const item = document.createElement('li');
+                item.className = 'option-item';
+                item.style.cssText = 'padding:0.2rem 0;background:transparent;border:none;border-radius:0;';
+                const label = optionLabels[optIdx] || (optIdx + 1);
+                item.textContent = `${label}) ${decodeHtmlEntity(optStr)}`;
+                optList.appendChild(item);
             });
+            card.appendChild(optList);
 
-            // Add answer key at bottom
-            renderAnswerKey();
-        }
+            const ans = document.createElement('div');
+            ans.className = 'correct-answer-container';
+            ans.style.cssText = 'margin-top:0.75rem;padding-top:0.5rem;border-top:1px dashed #c0c9c1;font-family:Manrope,sans-serif;font-weight:700;font-size:0.95rem;color:#14422d;';
+            const correctLabel = optionLabels[qObj.c] || (qObj.c + 1);
+            ans.textContent = `Answer: ${correctLabel}) ${decodeHtmlEntity(qObj.a[qObj.c])}`;
+            card.appendChild(ans);
 
-        const nameSlot = quizContainer.querySelector('.pdf-name-slot');
-        const dateSlot = quizContainer.querySelector('.pdf-date-slot');
-        if (nameSlot) {
-            const name = pdfStudentName.value.trim();
-            nameSlot.textContent = name ? `Name: ${name}` : 'Name: ______________________';
-        }
-        if (dateSlot) {
-            const date = pdfExamDate.value;
-            dateSlot.textContent = date ? `Date: ${new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}` : 'Date: ______________________';
-        }
+            pdfDiv.appendChild(card);
+        });
 
-        const element = quizContainer;
+        // Answer key grid
+        const keyDiv = document.createElement('div');
+        keyDiv.style.cssText = 'margin-top:3rem;padding-top:1.5rem;border-top:2px solid #c0c9c1;page-break-before:always;';
+        keyDiv.innerHTML = `
+            <h3 style="font-family:Manrope,sans-serif;font-size:1.25rem;font-weight:900;color:#14422d;margin-bottom:1rem;">Answer Key</h3>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:0.5rem;font-family:Manrope,sans-serif;font-size:0.9rem;">
+                ${quizData.map((qObj, i) => {
+                    const label = optionLabels[qObj.c] || (qObj.c + 1);
+                    return `<span style="font-weight:600;color:#14422d;"><strong>${i + 1}.</strong> ${label}</span>`;
+                }).join('')}
+            </div>`;
+        pdfDiv.appendChild(keyDiv);
+
+        // Generate PDF from the clean div
         const opt = {
             margin: [10, 10, 10, 10],
-            filename: `${quizTitleEl.textContent || 'quiz'}.pdf`,
+            filename: `${title}.pdf`,
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: { scale: 2, useCORS: true },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
@@ -1231,18 +1264,10 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         btnDownloadPdf.disabled = true;
         btnDownloadPdf.innerHTML = '<span class="animate-spin material-symbols-outlined text-sm">progress_activity</span> Generating...';
-        html2pdf().set(opt).from(element).save().then(() => {
+        html2pdf().set(opt).from(pdfDiv).save().then(() => {
             btnDownloadPdf.disabled = false;
             btnDownloadPdf.innerHTML = '<span class="material-symbols-outlined text-sm">download</span> Download PDF';
-
-            // Clean up injected elements
-            if (needsAnswers) {
-                injected.forEach(el => el.remove());
-                const pdfHeader = quizContainer.querySelector('#pdf-header-block');
-                if (pdfHeader) pdfHeader.remove();
-                const answerKey = quizContainer.querySelector('.answer-key-block');
-                if (answerKey) answerKey.remove();
-            }
+            pdfDiv.remove();
         });
     }
 
