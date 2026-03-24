@@ -386,15 +386,33 @@ document.addEventListener('DOMContentLoaded', () => {
         return pathToTab[window.location.pathname] || 'home';
     }
 
-    // ── History Search ──
+    // ── History Search & Filter ──
     let historyCards = [];
+    let activeFilter = 'all';
 
-    historySearch.addEventListener('input', () => {
-        const query = historySearch.value.toLowerCase().trim();
-        historyCards.forEach(({ card, title }) => {
-            card.style.display = title.toLowerCase().includes(query) ? '' : 'none';
+    historySearch.addEventListener('input', () => applyHistoryFilters());
+
+    document.querySelectorAll('.history-filter').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.history-filter').forEach(b => {
+                b.className = 'history-filter px-4 py-2 rounded-full text-xs font-headline font-bold transition-all bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest';
+            });
+            btn.className = 'history-filter active px-4 py-2 rounded-full text-xs font-headline font-bold transition-all bg-primary text-on-primary';
+            activeFilter = btn.dataset.filter;
+            applyHistoryFilters();
         });
     });
+
+    function applyHistoryFilters() {
+        const query = historySearch.value.toLowerCase().trim();
+        historyCards.forEach(({ card, title, status }) => {
+            const matchesSearch = !query || title.toLowerCase().includes(query);
+            const matchesFilter = activeFilter === 'all' ||
+                (activeFilter === 'completed' && status === 'completed') ||
+                (activeFilter === 'not-started' && status === 'not-started');
+            card.style.display = (matchesSearch && matchesFilter) ? '' : 'none';
+        });
+    }
 
     // ── Render history cards from data array ──
     function renderHistoryCards(quizzes) {
@@ -413,6 +431,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const cardTitle = ensureTitle(q.title, q.url);
 
             let scoreHtml;
+            let statusBadge;
             if (q.bestScore !== undefined) {
                 const pct = Math.round((q.bestScore / q.bestTotal) * 100);
                 scoreHtml = `<div class="flex flex-wrap gap-4">
@@ -425,8 +444,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         ${q.attemptCount} attempt${q.attemptCount !== 1 ? 's' : ''}
                     </div>
                 </div>`;
+                statusBadge = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-headline font-bold tracking-wide bg-primary-fixed text-on-primary-fixed"><span class="material-symbols-outlined text-xs">check_circle</span>Completed</span>`;
             } else {
                 scoreHtml = '<span class="text-on-surface-variant/50">Not attempted yet</span>';
+                statusBadge = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-headline font-bold tracking-wide bg-surface-container-high text-on-surface-variant"><span class="material-symbols-outlined text-xs">radio_button_unchecked</span>Not started</span>`;
             }
 
             card.innerHTML = `
@@ -435,6 +456,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="flex items-center gap-2">
                             <span class="font-headline font-bold text-[10px] tracking-widest text-primary uppercase">${q.dateStr || ''}</span>
                             ${q.timeStr ? `<span class="font-headline font-bold text-[10px] text-on-surface-variant/50">${q.timeStr}</span>` : ''}
+                            ${statusBadge}
                         </div>
                         <button class="btn-delete-h p-1 rounded-lg text-on-surface-variant/30 hover:text-error hover:bg-error-container/50 transition-all" title="Delete quiz">
                             <span class="material-symbols-outlined text-lg">delete</span>
@@ -531,7 +553,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             };
 
-            historyCards.push({ card, title: cardTitle });
+            const status = q.bestScore !== undefined ? 'completed' : 'not-started';
+            historyCards.push({ card, title: cardTitle, status });
             historyList.appendChild(card);
         });
     }

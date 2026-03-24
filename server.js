@@ -96,6 +96,20 @@ function extractFromJsArrays(html) {
                 return questions.map(q => ({ q: q.q, a: q.options, c: q.a }));
             }
 
+            // Format B2: { q, options: [...], correct: N } (e.g. zealstudy tamilQuiz, psychologyData)
+            if (first.q && Array.isArray(first.options) && typeof first.correct === 'number') {
+                return questions.map(q => ({ q: q.q, a: q.options, c: q.correct }));
+            }
+
+            // Format B3: { q_en, q_ta, opts_en: [...], opts_ta: [...], correct: N } (bilingual)
+            if (first.q_en && first.q_ta && Array.isArray(first.opts_en) && Array.isArray(first.opts_ta)) {
+                return questions.map(q => ({
+                    q: q.q_ta + ' / ' + q.q_en,
+                    a: q.opts_ta.map((t, i) => t + ' / ' + (q.opts_en[i] || '')),
+                    c: typeof q.correct === 'number' ? q.correct : 0
+                }));
+            }
+
             // Format C: { q, a: "str", b: "str", c: "str", d: "str" } with correctAnswers
             if (first.q && typeof first.a === 'string') {
                 let answerKeys = null;
