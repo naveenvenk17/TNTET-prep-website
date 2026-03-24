@@ -407,9 +407,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const query = historySearch.value.toLowerCase().trim();
         historyCards.forEach(({ card, title, status }) => {
             const matchesSearch = !query || title.toLowerCase().includes(query);
-            const matchesFilter = activeFilter === 'all' ||
-                (activeFilter === 'completed' && status === 'completed') ||
-                (activeFilter === 'not-started' && status === 'not-started');
+            const matchesFilter = activeFilter === 'all' || activeFilter === status;
             card.style.display = (matchesSearch && matchesFilter) ? '' : 'none';
         });
     }
@@ -432,6 +430,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let scoreHtml;
             let statusBadge;
+            const quizStatus = q.status || (q.bestScore !== undefined ? 'completed' : 'not_started');
+
             if (q.bestScore !== undefined) {
                 const pct = Math.round((q.bestScore / q.bestTotal) * 100);
                 scoreHtml = `<div class="flex flex-wrap gap-4">
@@ -444,9 +444,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         ${q.attemptCount} attempt${q.attemptCount !== 1 ? 's' : ''}
                     </div>
                 </div>`;
-                statusBadge = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-headline font-bold tracking-wide bg-primary-fixed text-on-primary-fixed"><span class="material-symbols-outlined text-xs">check_circle</span>Completed</span>`;
             } else {
-                scoreHtml = '<span class="text-on-surface-variant/50">Not attempted yet</span>';
+                scoreHtml = quizStatus === 'in_progress'
+                    ? '<span class="text-on-surface-variant/70">In progress...</span>'
+                    : '<span class="text-on-surface-variant/50">Not attempted yet</span>';
+            }
+
+            if (quizStatus === 'completed') {
+                statusBadge = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-headline font-bold tracking-wide bg-primary-fixed text-on-primary-fixed"><span class="material-symbols-outlined text-xs">check_circle</span>Completed</span>`;
+            } else if (quizStatus === 'in_progress') {
+                statusBadge = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-headline font-bold tracking-wide bg-tertiary-fixed text-tertiary"><span class="material-symbols-outlined text-xs">pending</span>In progress</span>`;
+            } else {
                 statusBadge = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-headline font-bold tracking-wide bg-surface-container-high text-on-surface-variant"><span class="material-symbols-outlined text-xs">radio_button_unchecked</span>Not started</span>`;
             }
 
@@ -553,8 +561,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             };
 
-            const status = q.bestScore !== undefined ? 'completed' : 'not-started';
-            historyCards.push({ card, title: cardTitle, status });
+            const filterStatus = quizStatus === 'completed' ? 'completed' : quizStatus === 'in_progress' ? 'in-progress' : 'not-started';
+            historyCards.push({ card, title: cardTitle, status: filterStatus });
             historyList.appendChild(card);
         });
     }
@@ -608,6 +616,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     id: doc.id,
                     title: resolvedTitle,
                     url: quiz.url || '',
+                    status: quiz.status || 'not_started',
                     dateStr,
                     timeStr
                 };
@@ -651,6 +660,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     q.bestScore = s.bestScore;
                     q.bestTotal = s.bestTotal;
                     q.attemptCount = s.attemptCount;
+                    // If attempts exist, status is at least completed
+                    if (q.status !== 'completed') q.status = 'completed';
                 }
             });
 
@@ -759,8 +770,29 @@ document.addEventListener('DOMContentLoaded', () => {
         history.pushState({ view: 'quiz' }, '', '/quiz');
         currentTab = 'quiz';
 
+        // Mark quiz as in_progress when opened in interactive mode
+        if (mode === 'interactive' && quizId && currentUser) {
+            updateQuizStatus(quizId, 'in_progress');
+        }
+
         renderQuiz();
         window.scrollTo(0, 0);
+    }
+
+    // ── Quiz Status Tracking ──
+    async function updateQuizStatus(quizId, status) {
+        if (!currentUser || !quizId) return;
+        try {
+            const update = { status };
+            if (status === 'in_progress') {
+                update.lastOpenedAt = firebase.firestore.FieldValue.serverTimestamp();
+            } else if (status === 'completed') {
+                update.completedAt = firebase.firestore.FieldValue.serverTimestamp();
+            }
+            await db.collection('quizzes').doc(quizId).update(update);
+        } catch (err) {
+            console.error('Failed to update quiz status:', err);
+        }
     }
 
     async function loadQuizFromFirestore(quizId, mode) {
@@ -867,6 +899,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 answers: userAnswers.slice(),
                 completedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
+            // Mark quiz as completed
+            await updateQuizStatus(currentQuizId, 'completed');
         } catch (err) {
             console.error('Failed to save attempt:', err);
         }
