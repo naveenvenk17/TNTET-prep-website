@@ -27,27 +27,37 @@ function extractTitle(html) {
 
 // ── Regex-based extraction (primary) ──
 function extractViaRegex(html) {
-    // Strategy: find any const/let/var that assigns an array of objects containing quiz questions.
-    // Multiple variable naming conventions exist across quiz sites:
-    //   tamilQuizData, psychologyData, quizData, ecoData, aliceData, englishData,
-    //   socialQuestions, psychologyQuestions, tamilQuestions, questions, etc.
+    // Try multiple strategies in order of specificity
 
-    // Look for separate answer arrays that may need to be merged
+    // Strategy 1: JS array variables ({ q, a:[], c } or { q, options:[], a } or { q, a:"str", b, c, d })
+    const result = extractFromJsArrays(html);
+    if (result) return result;
+
+    // Strategy 2: 3schools.in obfuscated quiz ({question:..., options:[...], answer:N})
+    const obfuscated = extractFromObfuscated(html);
+    if (obfuscated) return obfuscated;
+
+    // Strategy 3: HTML radio-button form + answer object (const answers = {q1:"a",...})
+    const formBased = extractFromHtmlForm(html);
+    if (formBased) return formBased;
+
+    return null;
+}
+
+// Strategy 1: JS array variables
+function extractFromJsArrays(html) {
     const correctAnswersMatch = html.match(/(?:const|let|var)\s+correctAnswers\s*=\s*(\[[\s\S]*?\]);/);
     const correctIndicesMatch = html.match(/(?:const|let|var)\s+correctIndices\s*=\s*(\[[\s\S]*?\]);/);
 
-    // Collect all variable candidates that look like quiz arrays
     const candidates = [];
     const varRegex = /(?:const|let|var)\s+(\w+)\s*=\s*\[/g;
     let varMatch;
     while ((varMatch = varRegex.exec(html)) !== null) {
         const name = varMatch[1];
-        // Skip non-quiz variables (correctAnswers, correctIndices, known non-quiz vars)
-        if (/^(correctAnswers|correctIndices|labels|colors|categories|months|days|options)$/i.test(name)) continue;
+        if (/^(correctAnswers|correctIndices|labels|colors|categories|months|monthFormat|days|options|M|p)$/i.test(name)) continue;
         candidates.push({ name, index: varMatch.index });
     }
 
-    // Try each candidate, prioritizing ones with quiz-like names
     const quizNameScore = (name) => {
         const n = name.toLowerCase();
         if (n === 'tamilquizdata') return 10;
@@ -60,7 +70,6 @@ function extractViaRegex(html) {
 
     for (const candidate of candidates) {
         try {
-            // Extract the array for this variable
             const fromVar = html.substring(candidate.index);
             const arrayMatch = fromVar.match(/(?:const|let|var)\s+\w+\s*=\s*(\[[\s\S]*?\]);/);
             if (!arrayMatch) continue;
@@ -70,51 +79,149 @@ function extractViaRegex(html) {
             const questions = vm.runInContext(`const d = ${arrayMatch[1]}; d;`, context);
 
             if (!Array.isArray(questions) || questions.length === 0) continue;
-            if (!questions[0].q) continue; // Must have a question field
 
-            // Format A: standard { q, a: [...], c } — may need correctIndices merged
-            if (Array.isArray(questions[0].a)) {
+            const first = questions[0];
+
+            // Format A: { q, a: [...], c }
+            if (first.q && Array.isArray(first.a)) {
                 if (correctIndicesMatch) {
                     const indices = vm.runInContext(`const d = ${correctIndicesMatch[1]}; d;`, vm.createContext({}));
-                    questions.forEach((q, i) => {
-                        if (q.c === undefined && indices[i] !== undefined) q.c = indices[i];
-                    });
+                    questions.forEach((q, i) => { if (q.c === undefined && indices[i] !== undefined) q.c = indices[i]; });
                 }
-                if (questions[0].q && questions[0].a) return questions;
+                return questions;
             }
 
-            // Format B: { q, a: "A. opt", b: "B. opt", c: "C. opt", d: "D. opt" } with correctAnswers
-            if (typeof questions[0].a === 'string') {
+            // Format B: { q, options: [...], a: N } (e.g. biturls.net quizzes)
+            if (first.q && Array.isArray(first.options) && typeof first.a === 'number') {
+                return questions.map(q => ({ q: q.q, a: q.options, c: q.a }));
+            }
+
+            // Format C: { q, a: "str", b: "str", c: "str", d: "str" } with correctAnswers
+            if (first.q && typeof first.a === 'string') {
                 let answerKeys = null;
                 if (correctAnswersMatch) {
                     answerKeys = vm.runInContext(`const d = ${correctAnswersMatch[1]}; d;`, vm.createContext({}));
                 }
                 const letterToIndex = { 'A': 0, 'B': 1, 'C': 2, 'D': 3 };
-
                 const converted = questions.map((q, i) => {
-                    // Strip leading "A. ", "B. " etc. from options
-                    const opts = ['a', 'b', 'c', 'd']
-                        .map(key => q[key])
-                        .filter(Boolean)
+                    const opts = ['a', 'b', 'c', 'd'].map(key => q[key]).filter(Boolean)
                         .map(opt => typeof opt === 'string' ? opt.replace(/^[A-Da-d][\.\)]\s*/, '') : opt);
-
                     let correctIdx = 0;
-                    if (answerKeys && answerKeys[i]) {
-                        correctIdx = letterToIndex[answerKeys[i].toUpperCase()] ?? 0;
-                    }
-
+                    if (answerKeys && answerKeys[i]) correctIdx = letterToIndex[answerKeys[i].toUpperCase()] ?? 0;
                     return { q: q.q, a: opts, c: correctIdx };
                 });
-
                 if (converted.length > 0 && converted[0].a.length >= 2) return converted;
             }
+
+            // Format D: { question, options: [...], answer: N } (clean non-obfuscated)
+            if (first.question && Array.isArray(first.options) && typeof first.answer === 'number') {
+                return questions.map(q => ({
+                    q: q.question,
+                    a: q.options.map(o => typeof o === 'string' ? o.replace(/^[A-Da-d][\)\.\]]\s*/, '') : o),
+                    c: q.answer
+                }));
+            }
         } catch (e) {
-            // This candidate failed to parse, try next
             continue;
         }
     }
-
     return null;
+}
+
+// Strategy 2: 3schools.in / template-literal quiz engine
+function extractFromObfuscated(html) {
+    // These sites embed quiz data as [{question:`...`, options:[`A)...`,...], answer:N}]
+    // using backtick template literals (or sometimes quotes).
+    const matches = [];
+    // Match {question: `...` or "..." or '...',  options: [...], answer: N}
+    const regex = /\{\s*question\s*:\s*[`'"]([\s\S]*?)[`'"]\s*,\s*options\s*:\s*\[([\s\S]*?)\]\s*,\s*answer\s*:\s*(\d+)\s*\}/g;
+    let m;
+    while ((m = regex.exec(html)) !== null) {
+        try {
+            const qText = m[1].trim().replace(/^\.\s*/, '');
+            const optsRaw = m[2];
+            // Parse options from any quote style: `A) foo`, "B) bar", 'C) baz'
+            const opts = [];
+            const optRegex = /[`'"]([\s\S]*?)[`'"]/g;
+            let optM;
+            while ((optM = optRegex.exec(optsRaw)) !== null) {
+                const cleaned = optM[1].trim().replace(/^\(?[A-Da-d]\)[\s.]*/, '');
+                if (cleaned) opts.push(cleaned);
+            }
+            if (opts.length >= 2) {
+                matches.push({ q: qText, a: opts, c: parseInt(m[3]) });
+            }
+        } catch (e) { continue; }
+    }
+    return matches.length > 0 ? matches : null;
+}
+
+// Strategy 3: HTML form with radio buttons + answer object
+function extractFromHtmlForm(html) {
+    // Find the answer key object: const answers = { q1: "a", q2: "b", ... }
+    const answersMatch = html.match(/(?:const|let|var)\s+answers\s*=\s*\{([\s\S]*?)\};/);
+    if (!answersMatch) return null;
+
+    // Parse the answers object
+    const answerMap = {};
+    const pairRegex = /(\w+)\s*:\s*"(\w)"/g;
+    let pm;
+    while ((pm = pairRegex.exec(answersMatch[1])) !== null) {
+        answerMap[pm[1]] = pm[2]; // e.g. { q1: "a", q2: "b", p3q1: "a" }
+    }
+    if (Object.keys(answerMap).length === 0) return null;
+
+    // Extract questions from HTML — look for q-text divs or labels with question text
+    // Pattern 1: <div class="q-text">1. question?</div> followed by radio labels
+    const questions = [];
+    // Find all question blocks — they use <div class="q-text"> or <p class="q-text">
+    const qTextRegex = /<(?:div|p)[^>]*class=["'][^"']*q-text[^"']*["'][^>]*>([\s\S]*?)<\/(?:div|p)>/gi;
+    const qBlocks = [];
+    let qm;
+    while ((qm = qTextRegex.exec(html)) !== null) {
+        qBlocks.push({ text: qm[1], index: qm.index });
+    }
+
+    if (qBlocks.length === 0) return null;
+
+    // For each question, find the radio button options that follow it
+    const sortedKeys = Object.keys(answerMap).sort((a, b) => {
+        const numA = parseInt(a.replace(/\D/g, ''));
+        const numB = parseInt(b.replace(/\D/g, ''));
+        return numA - numB;
+    });
+
+    for (let i = 0; i < qBlocks.length; i++) {
+        const qHtml = qBlocks[i].text.replace(/<[^>]+>/g, '').trim();
+        // Clean question number prefix
+        const qText = qHtml.replace(/^\d+[\.\)\]]\s*/, '');
+        if (!qText) continue;
+
+        // Find radio options between this question and the next
+        const startIdx = qBlocks[i].index;
+        const endIdx = i + 1 < qBlocks.length ? qBlocks[i + 1].index : startIdx + 5000;
+        const section = html.substring(startIdx, endIdx);
+
+        // Extract radio button labels
+        const opts = [];
+        const labelRegex = /<label[^>]*>([\s\S]*?)<\/label>/gi;
+        let lm;
+        while ((lm = labelRegex.exec(section)) !== null) {
+            const labelText = lm[1].replace(/<[^>]+>/g, '').trim();
+            if (labelText) opts.push(labelText.replace(/^[A-Da-d][\)\.\]]\s*/, ''));
+        }
+
+        if (opts.length < 2) continue;
+
+        // Get correct answer from answer map
+        const ansKey = sortedKeys[i];
+        const letterToIndex = { 'a': 0, 'b': 1, 'c': 2, 'd': 3 };
+        const correctIdx = ansKey ? (letterToIndex[answerMap[ansKey]] ?? 0) : 0;
+
+        questions.push({ q: qText, a: opts, c: correctIdx });
+    }
+
+    return questions.length > 0 ? questions : null;
 }
 
 // ── GPT-5 fallback extraction ──

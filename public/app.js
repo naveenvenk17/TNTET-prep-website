@@ -1260,7 +1260,7 @@ document.addEventListener('DOMContentLoaded', () => {
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: { scale: 2, useCORS: true, scrollY: 0 },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-            pagebreak: { mode: ['avoid-all', 'css', 'legacy'], avoid: '.pdf-question' }
+            pagebreak: { mode: ['avoid-all'], avoid: '.pdf-question' }
         };
         btnDownloadPdf.disabled = true;
         btnDownloadPdf.innerHTML = '<span class="animate-spin material-symbols-outlined text-sm">progress_activity</span> Generating...';
