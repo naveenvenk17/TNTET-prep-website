@@ -96,6 +96,11 @@ function extractFromJsArrays(html) {
                 return questions.map(q => ({ q: q.q, a: q.options, c: q.a }));
             }
 
+            // Format B1: { q, o: [...], a: N } (e.g. biturls.net advanced psychology)
+            if (first.q && Array.isArray(first.o) && typeof first.a === 'number') {
+                return questions.map(q => ({ q: q.q, a: q.o, c: q.a }));
+            }
+
             // Format B2: { q, options: [...], correct: N } (e.g. zealstudy tamilQuiz, psychologyData)
             if (first.q && Array.isArray(first.options) && typeof first.correct === 'number') {
                 return questions.map(q => ({ q: q.q, a: q.options, c: q.correct }));
