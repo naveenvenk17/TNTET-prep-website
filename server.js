@@ -115,6 +115,21 @@ function extractFromJsArrays(html) {
                 }));
             }
 
+            // Format E: { q, a: "C", options: { A:"...", B:"...", C:"...", D:"..." } } — options as object, answer as letter
+            if (first.q && typeof first.a === 'string' && first.options && !Array.isArray(first.options) && typeof first.options === 'object') {
+                const li = { 'A': 0, 'B': 1, 'C': 2, 'D': 3 };
+                return questions.map(q => {
+                    const opts = ['A', 'B', 'C', 'D'].map(k => q.options[k]).filter(Boolean);
+                    return { q: q.q, a: opts, c: li[q.a.toUpperCase()] ?? 0 };
+                });
+            }
+
+            // Format F: { q, a: "B", opts: ["...", "...", "...", "..."] } — opts array, answer as letter
+            if (first.q && typeof first.a === 'string' && Array.isArray(first.opts)) {
+                const li = { 'A': 0, 'B': 1, 'C': 2, 'D': 3 };
+                return questions.map(q => ({ q: q.q, a: q.opts, c: li[q.a.toUpperCase()] ?? 0 }));
+            }
+
             // Format C: { q, a: "str", b: "str", c: "str", d: "str" } with correctAnswers
             if (first.q && typeof first.a === 'string') {
                 let answerKeys = null;
