@@ -50,11 +50,12 @@ function extractFromJsArrays(html) {
     const correctIndicesMatch = html.match(/(?:const|let|var)\s+correctIndices\s*=\s*(\[[\s\S]*?\]);/);
 
     const candidates = [];
-    const varRegex = /(?:const|let|var)\s+(\w+)\s*=\s*\[/g;
+    // Match both declared (const/let/var x = [...]) and bare (x = [...]) assignments
+    const varRegex = /(?:(?:const|let|var)\s+)?(\w+)\s*=\s*\[/g;
     let varMatch;
     while ((varMatch = varRegex.exec(html)) !== null) {
         const name = varMatch[1];
-        if (/^(correctAnswers|correctIndices|labels|colors|categories|months|monthFormat|days|options|M|p)$/i.test(name)) continue;
+        if (/^(correctAnswers|correctIndices|labels|colors|categories|months|monthFormat|days|options|M|p|const|let|var|function|return|if|else|for|while)$/i.test(name)) continue;
         candidates.push({ name, index: varMatch.index });
     }
 
@@ -71,7 +72,7 @@ function extractFromJsArrays(html) {
     for (const candidate of candidates) {
         try {
             const fromVar = html.substring(candidate.index);
-            const arrayMatch = fromVar.match(/(?:const|let|var)\s+\w+\s*=\s*(\[[\s\S]*?\]);/);
+            const arrayMatch = fromVar.match(/(?:(?:const|let|var)\s+)?\w+\s*=\s*(\[[\s\S]*?\]);/);
             if (!arrayMatch) continue;
 
             const context = {};
@@ -115,11 +116,13 @@ function extractFromJsArrays(html) {
                 }));
             }
 
-            // Format E: { q, a: "C", options: { A:"...", B:"...", C:"...", D:"..." } } — options as object, answer as letter
-            if (first.q && typeof first.a === 'string' && first.options && !Array.isArray(first.options) && typeof first.options === 'object') {
+            // Format E: { q, a: "C", options/opts: { A:"...", B:"..", C:"...", D:"..." } } — options as object, answer as letter
+            const optsObj = first.options || first.opts;
+            if (first.q && typeof first.a === 'string' && optsObj && !Array.isArray(optsObj) && typeof optsObj === 'object') {
                 const li = { 'A': 0, 'B': 1, 'C': 2, 'D': 3 };
                 return questions.map(q => {
-                    const opts = ['A', 'B', 'C', 'D'].map(k => q.options[k]).filter(Boolean);
+                    const src = q.options || q.opts;
+                    const opts = ['A', 'B', 'C', 'D'].map(k => src[k]).filter(Boolean);
                     return { q: q.q, a: opts, c: li[q.a.toUpperCase()] ?? 0 };
                 });
             }
