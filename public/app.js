@@ -386,9 +386,20 @@ document.addEventListener('DOMContentLoaded', () => {
         return pathToTab[window.location.pathname] || 'home';
     }
 
-    // ── History Search & Filter ──
+    // ── History Search, Filter & Pagination ──
     let historyCards = [];
     let activeFilter = 'all';
+    let allQuizzes = []; // full list for pagination
+    const PAGE_SIZE = 10;
+    let currentPage = 1;
+    let totalPages = 1;
+    const paginationDiv = document.getElementById('history-pagination');
+    const pageIndicator = document.getElementById('page-indicator');
+    const btnPagePrev = document.getElementById('btn-page-prev');
+    const btnPageNext = document.getElementById('btn-page-next');
+
+    btnPagePrev.addEventListener('click', () => { if (currentPage > 1) { currentPage--; renderCurrentPage(); historyList.scrollIntoView({ behavior: 'smooth', block: 'start' }); } });
+    btnPageNext.addEventListener('click', () => { if (currentPage < totalPages) { currentPage++; renderCurrentPage(); historyList.scrollIntoView({ behavior: 'smooth', block: 'start' }); } });
 
     historySearch.addEventListener('input', () => applyHistoryFilters());
 
@@ -403,13 +414,43 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    function applyHistoryFilters() {
+    function getFilteredQuizzes() {
         const query = historySearch.value.toLowerCase().trim();
-        historyCards.forEach(({ card, title, status }) => {
-            const matchesSearch = !query || title.toLowerCase().includes(query);
-            const matchesFilter = activeFilter === 'all' || activeFilter === status;
-            card.style.display = (matchesSearch && matchesFilter) ? '' : 'none';
+        return allQuizzes.filter(q => {
+            const title = ensureTitle(q.title, q.url).toLowerCase();
+            const matchesSearch = !query || title.includes(query);
+            const quizStatus = q.status || 'not_started';
+            const filterStatus = quizStatus === 'completed' ? 'completed' : quizStatus === 'in_progress' ? 'in-progress' : 'not-started';
+            const matchesFilter = activeFilter === 'all' || activeFilter === filterStatus;
+            return matchesSearch && matchesFilter;
         });
+    }
+
+    function applyHistoryFilters() {
+        currentPage = 1;
+        const filtered = getFilteredQuizzes();
+        totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+        const pageQuizzes = filtered.slice(0, PAGE_SIZE);
+        renderHistoryCards(pageQuizzes);
+        updatePaginationFor(filtered.length);
+    }
+
+    function renderCurrentPage() {
+        const filtered = getFilteredQuizzes();
+        totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+        if (currentPage > totalPages) currentPage = totalPages;
+        const start = (currentPage - 1) * PAGE_SIZE;
+        const pageQuizzes = filtered.slice(start, start + PAGE_SIZE);
+        renderHistoryCards(pageQuizzes);
+        updatePaginationFor(filtered.length);
+    }
+
+    function updatePaginationFor(totalItems) {
+        totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+        pageIndicator.textContent = `${currentPage} / ${totalPages}`;
+        btnPagePrev.disabled = currentPage <= 1;
+        btnPageNext.disabled = currentPage >= totalPages;
+        paginationDiv.classList.toggle('hidden', totalPages <= 1);
     }
 
     // ── Render history cards from data array ──
@@ -576,7 +617,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // 1. Show cached data instantly
         const cached = cacheGet(cacheKey);
         if (cached) {
-            renderHistoryCards(cached);
+            allQuizzes = cached;
+            currentPage = 1;
+            renderCurrentPage();
         } else {
             historyList.innerHTML = '<div class="col-span-full py-12 text-center text-on-surface-variant font-headline flex items-center justify-center gap-3"><svg class="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Loading your quizzes...</div>';
         }
@@ -591,7 +634,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const aTime = a.data().createdAt?.toMillis() || 0;
                 const bTime = b.data().createdAt?.toMillis() || 0;
                 return bTime - aTime;
-            }).slice(0, 20);
+            });
 
             // Build serializable quiz list (for cache + rendering)
             const quizzes = sortedDocs.map(doc => {
@@ -622,8 +665,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
             });
 
-            // Render cards immediately (without scores)
-            renderHistoryCards(quizzes);
+            // Render first page immediately (without scores)
+            allQuizzes = quizzes;
+            currentPage = 1;
+            renderCurrentPage();
 
             // Cache the list
             cacheSet(cacheKey, quizzes);
@@ -665,7 +710,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
-            renderHistoryCards(quizzes);
+            allQuizzes = quizzes;
+            renderCurrentPage();
             cacheSet(cacheKey, quizzes);
         } catch (err) {
             console.error('Failed to load history:', err);
