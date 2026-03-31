@@ -408,11 +408,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Detect subject from title
     function detectSubject(title) {
         const t = (title || '').toLowerCase();
-        if (/tamil|தமிழ்|தம/.test(t)) return 'Tamil';
-        if (/english|grammar|collective/.test(t)) return 'English';
-        if (/psychology|உளவியல்|உளவ|child development|குழந்தை மேம்பாடு|கற்பித்தல்/.test(t)) return 'Psychology';
-        if (/social|சமூக அறிவியல்|சமூக|history|geography|civics|economics|sultan|chola|pandya|vijaya|landform|medieval/.test(t)) return 'Social Science';
-        return 'Other';
+        if (/english|grammar|collective|prose|poem|supplementary|stone carver|wonderland|red-headed|listeners|newton|selfish giant|reminiscence|beauty|crossing|friendship|lessons|sea turtle|trees walked|prayer|bully|jane ey/i.test(t)) return 'English';
+        if (/psychology|உளவியல்|உளவ|child development|குழந்தை மேம்பாடு|கற்பித்தல்|attention/i.test(t)) return 'Psychology';
+        if (/social|சமூக அறிவியல்|சமூக|history|geography|civics|economics|sultan|chola|pandya|vijaya|landform|medieval|kingdom|sources|interior|earth|delhi/i.test(t)) return 'Social Science';
+        return 'Tamil';
     }
 
     // Build subject checkboxes from current quiz data
