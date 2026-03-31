@@ -205,11 +205,28 @@
                     </div>
                 </div>
 
-                <div id="history-filters" class="flex gap-2 flex-wrap">
+                <div id="history-filters" class="flex gap-2 flex-wrap items-center">
                     <button data-filter="all" class="history-filter active px-4 py-2 rounded-full text-xs font-headline font-bold transition-all bg-primary text-on-primary">All</button>
                     <button data-filter="completed" class="history-filter px-4 py-2 rounded-full text-xs font-headline font-bold transition-all bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest">Completed</button>
                     <button data-filter="in-progress" class="history-filter px-4 py-2 rounded-full text-xs font-headline font-bold transition-all bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest">In progress</button>
                     <button data-filter="not-started" class="history-filter px-4 py-2 rounded-full text-xs font-headline font-bold transition-all bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest">Not started</button>
+
+                    <div class="ml-auto relative" id="subject-filter-wrap">
+                        <button id="btn-subject-filter" class="h-9 px-4 bg-surface-container-high text-on-surface rounded-full font-headline font-bold text-xs hover:bg-surface-container-highest active:scale-95 transition-all flex items-center gap-1.5">
+                            <span class="material-symbols-outlined text-sm">filter_list</span>
+                            <span id="subject-filter-label">All subjects</span>
+                            <span class="material-symbols-outlined text-sm">expand_more</span>
+                        </button>
+                        <div id="subject-dropdown" class="hidden absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl shadow-black/10 border border-surface-variant overflow-hidden z-50">
+                            <div class="p-2 space-y-0.5" id="subject-checkboxes">
+                                <!-- Populated by JS -->
+                            </div>
+                            <div class="border-t border-surface-variant p-2 flex gap-2">
+                                <button id="btn-subject-all" class="flex-1 h-8 rounded-lg text-xs font-headline font-bold bg-surface-container-high text-on-surface hover:bg-surface-container-highest transition-all">Select all</button>
+                                <button id="btn-subject-clear" class="flex-1 h-8 rounded-lg text-xs font-headline font-bold bg-surface-container-high text-on-surface hover:bg-surface-container-highest transition-all">Clear</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div id="history-list" class="grid grid-cols-1 md:grid-cols-2 gap-6">

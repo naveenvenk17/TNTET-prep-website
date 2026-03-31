@@ -398,6 +398,90 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnPagePrev = document.getElementById('btn-page-prev');
     const btnPageNext = document.getElementById('btn-page-next');
 
+    // ── Subject filter ──
+    let selectedSubjects = new Set(); // empty = all selected
+    const subjectDropdown = document.getElementById('subject-dropdown');
+    const subjectCheckboxes = document.getElementById('subject-checkboxes');
+    const subjectFilterLabel = document.getElementById('subject-filter-label');
+    const btnSubjectFilter = document.getElementById('btn-subject-filter');
+
+    // Detect subject from title
+    function detectSubject(title) {
+        const t = (title || '').toLowerCase();
+        if (/tamil|தமிழ்|தம/.test(t)) return 'Tamil';
+        if (/english|grammar|collective/.test(t)) return 'English';
+        if (/psychology|உளவியல்|உளவ|child development|குழந்தை மேம்பாடு|கற்பித்தல்/.test(t)) return 'Psychology';
+        if (/social|சமூக அறிவியல்|சமூக|history|geography|civics|economics|sultan|chola|pandya|vijaya|landform|medieval/.test(t)) return 'Social Science';
+        return 'Other';
+    }
+
+    // Build subject checkboxes from current quiz data
+    function buildSubjectFilter() {
+        const subjects = new Set();
+        allQuizzes.forEach(q => subjects.add(detectSubject(ensureTitle(q.title, q.url))));
+        const sorted = [...subjects].sort();
+
+        subjectCheckboxes.innerHTML = '';
+        sorted.forEach(sub => {
+            const count = allQuizzes.filter(q => detectSubject(ensureTitle(q.title, q.url)) === sub).length;
+            const label = document.createElement('label');
+            label.className = 'flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-surface-container-low transition-all cursor-pointer text-xs font-headline font-bold text-on-surface';
+            label.innerHTML = `<input type="checkbox" class="subject-cb accent-primary w-4 h-4" value="${sub}" ${selectedSubjects.size === 0 || selectedSubjects.has(sub) ? 'checked' : ''}><span class="flex-1">${sub}</span><span class="text-on-surface-variant/50 font-normal">${count}</span>`;
+            label.querySelector('input').addEventListener('change', onSubjectChange);
+            subjectCheckboxes.appendChild(label);
+        });
+
+        updateSubjectLabel();
+    }
+
+    function onSubjectChange() {
+        const checked = [...subjectCheckboxes.querySelectorAll('.subject-cb:checked')].map(cb => cb.value);
+        const allCbs = subjectCheckboxes.querySelectorAll('.subject-cb');
+        if (checked.length === allCbs.length || checked.length === 0) {
+            selectedSubjects = new Set(); // all = no filter
+        } else {
+            selectedSubjects = new Set(checked);
+        }
+        updateSubjectLabel();
+        applyHistoryFilters();
+    }
+
+    function updateSubjectLabel() {
+        if (selectedSubjects.size === 0) {
+            subjectFilterLabel.textContent = 'All subjects';
+        } else if (selectedSubjects.size === 1) {
+            subjectFilterLabel.textContent = [...selectedSubjects][0];
+        } else {
+            subjectFilterLabel.textContent = `${selectedSubjects.size} subjects`;
+        }
+    }
+
+    btnSubjectFilter.addEventListener('click', (e) => {
+        e.stopPropagation();
+        subjectDropdown.classList.toggle('hidden');
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!document.getElementById('subject-filter-wrap').contains(e.target)) {
+            subjectDropdown.classList.add('hidden');
+        }
+    });
+
+    document.getElementById('btn-subject-all').addEventListener('click', () => {
+        selectedSubjects = new Set();
+        subjectCheckboxes.querySelectorAll('.subject-cb').forEach(cb => cb.checked = true);
+        updateSubjectLabel();
+        applyHistoryFilters();
+    });
+
+    document.getElementById('btn-subject-clear').addEventListener('click', () => {
+        subjectCheckboxes.querySelectorAll('.subject-cb').forEach(cb => cb.checked = false);
+        selectedSubjects = new Set(['__none__']); // force empty
+        updateSubjectLabel();
+        subjectFilterLabel.textContent = 'No subjects';
+        applyHistoryFilters();
+    });
+
     btnPagePrev.addEventListener('click', () => { if (currentPage > 1) { currentPage--; renderCurrentPage(); historyList.scrollIntoView({ behavior: 'smooth', block: 'start' }); } });
     btnPageNext.addEventListener('click', () => { if (currentPage < totalPages) { currentPage++; renderCurrentPage(); historyList.scrollIntoView({ behavior: 'smooth', block: 'start' }); } });
 
@@ -417,12 +501,13 @@ document.addEventListener('DOMContentLoaded', () => {
     function getFilteredQuizzes() {
         const query = historySearch.value.toLowerCase().trim();
         return allQuizzes.filter(q => {
-            const title = ensureTitle(q.title, q.url).toLowerCase();
-            const matchesSearch = !query || title.includes(query);
+            const title = ensureTitle(q.title, q.url);
+            const matchesSearch = !query || title.toLowerCase().includes(query);
             const quizStatus = q.status || 'not_started';
             const filterStatus = quizStatus === 'completed' ? 'completed' : quizStatus === 'in_progress' ? 'in-progress' : 'not-started';
             const matchesFilter = activeFilter === 'all' || activeFilter === filterStatus;
-            return matchesSearch && matchesFilter;
+            const matchesSubject = selectedSubjects.size === 0 || selectedSubjects.has(detectSubject(title));
+            return matchesSearch && matchesFilter && matchesSubject;
         });
     }
 
@@ -468,6 +553,14 @@ document.addEventListener('DOMContentLoaded', () => {
             card.className = 'history-card animate-in fade-in slide-in-from-bottom-4 duration-500';
 
             const cardTitle = ensureTitle(q.title, q.url);
+            const subject = detectSubject(cardTitle);
+            const subjectColors = {
+                'Tamil': 'bg-amber-100 text-amber-800',
+                'English': 'bg-blue-100 text-blue-800',
+                'Psychology': 'bg-purple-100 text-purple-800',
+                'Social Science': 'bg-emerald-100 text-emerald-800',
+                'Other': 'bg-gray-100 text-gray-600'
+            };
 
             let scoreHtml;
             let statusBadge;
@@ -502,10 +595,10 @@ document.addEventListener('DOMContentLoaded', () => {
             card.innerHTML = `
                 <div class="space-y-2 mb-4">
                     <div class="flex justify-between items-start">
-                        <div class="flex items-center gap-2">
-                            <span class="font-headline font-bold text-[10px] tracking-widest text-primary uppercase">${q.dateStr || ''}</span>
-                            ${q.timeStr ? `<span class="font-headline font-bold text-[10px] text-on-surface-variant/50">${q.timeStr}</span>` : ''}
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-headline font-bold ${subjectColors[subject] || subjectColors['Other']}">${subject}</span>
                             ${statusBadge}
+                            <span class="font-headline font-bold text-[10px] text-on-surface-variant/50">${q.dateStr || ''}${q.timeStr ? ' ' + q.timeStr : ''}</span>
                         </div>
                         <button class="btn-delete-h p-1 rounded-lg text-on-surface-variant/30 hover:text-error hover:bg-error-container/50 transition-all" title="Delete quiz">
                             <span class="material-symbols-outlined text-lg">delete</span>
@@ -619,6 +712,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (cached) {
             allQuizzes = cached;
             currentPage = 1;
+            buildSubjectFilter();
             renderCurrentPage();
         } else {
             historyList.innerHTML = '<div class="col-span-full py-12 text-center text-on-surface-variant font-headline flex items-center justify-center gap-3"><svg class="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Loading your quizzes...</div>';
@@ -668,6 +762,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Render first page immediately (without scores)
             allQuizzes = quizzes;
             currentPage = 1;
+            buildSubjectFilter();
             renderCurrentPage();
 
             // Cache the list
