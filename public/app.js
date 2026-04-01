@@ -1384,7 +1384,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Always build a clean printable snapshot — no red/green, no interactive state
         const pdfDiv = document.createElement('div');
         pdfDiv.className = 'mode-printable';
-        pdfDiv.style.cssText = 'width:210mm;padding:10mm;background:#fff;color:#000;font-family:Manrope,sans-serif;';
+        pdfDiv.style.cssText = 'width:210mm;background:#fff;color:#000;font-family:Manrope,sans-serif;';
         document.body.appendChild(pdfDiv);
 
         // PDF header
@@ -1408,7 +1408,7 @@ document.addEventListener('DOMContentLoaded', () => {
         quizData.forEach((qObj, i) => {
             const card = document.createElement('div');
             card.className = 'question-card pdf-question';
-            card.style.cssText = 'border-radius:0;border-left:none;box-shadow:none;padding:0;margin-bottom:2.5rem;background:transparent;page-break-inside:avoid;break-inside:avoid;';
+            card.style.cssText = 'border-radius:0;border-left:none;box-shadow:none;padding:0 0 0.5rem 0;margin-bottom:2rem;background:transparent;page-break-inside:avoid;break-inside:avoid;';
             card.setAttribute('data-html2pdf-avoid', '');
 
             const qText = document.createElement('div');
@@ -1452,12 +1452,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Generate PDF from the clean div
         const opt = {
-            margin: [10, 10, 10, 10],
+            margin: [15, 10, 15, 10],
             filename: `${title}.pdf`,
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: { scale: 2, useCORS: true, scrollY: 0 },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-            pagebreak: { mode: ['avoid-all'], avoid: '.pdf-question' }
+            pagebreak: { mode: ['css'], avoid: '.pdf-question' }
         };
         btnDownloadPdf.disabled = true;
         btnDownloadPdf.innerHTML = '<span class="animate-spin material-symbols-outlined text-sm">progress_activity</span> Generating...';
