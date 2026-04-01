@@ -408,9 +408,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Detect subject from title
     function detectSubject(title) {
         const t = (title || '').toLowerCase();
-        if (/english|grammar|collective|prose|poem|supplementary|stone carver|wonderland|red-headed|listeners|newton|selfish giant|reminiscence|beauty|crossing|friendship|lessons|sea turtle|trees walked|prayer|bully|jane ey/i.test(t)) return 'English';
+        // Psychology first — titles often contain "English medium" which shouldn't match English subject
         if (/psychology|உளவியல்|உளவ|child development|குழந்தை மேம்பாடு|கற்பித்தல்|attention/i.test(t)) return 'Psychology';
-        if (/social|சமூக அறிவியல்|சமூக|history|geography|civics|economics|sultan|chola|pandya|vijaya|landform|medieval|kingdom|sources|interior|earth|delhi/i.test(t)) return 'Social Science';
+        if (/social|சமூக அறிவியல்|சமூக|history|geography|civics|economics|sultan|chola|pandya|vijaya|landform|medieval|kingdom|sources|interior|earth|delhi|population|settlement/i.test(t)) return 'Social Science';
+        if (/english|grammar|collective|prose|poem|supplementary|stone carver|wonderland|red-headed|listeners|newton|selfish giant|reminiscence|beauty|crossing|friendship|lessons|sea turtle|trees walked|prayer|bully|jane ey|being safe|fire work/i.test(t)) return 'English';
         return 'Tamil';
     }
 
