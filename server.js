@@ -102,6 +102,12 @@ function extractFromJsArrays(html) {
                 return questions.map(q => ({ q: q.q, a: q.o, c: q.a }));
             }
 
+            // Format B1b: { q, o: [...], a: "C" } (letter answer with o array)
+            if (first.q && Array.isArray(first.o) && typeof first.a === 'string') {
+                const li = { 'A': 0, 'B': 1, 'C': 2, 'D': 3 };
+                return questions.map(q => ({ q: q.q, a: q.o, c: li[q.a.toUpperCase()] ?? 0 }));
+            }
+
             // Format B2: { q, options: [...], correct: N } (e.g. zealstudy tamilQuiz, psychologyData)
             if (first.q && Array.isArray(first.options) && typeof first.correct === 'number') {
                 return questions.map(q => ({ q: q.q, a: q.options, c: q.correct }));
